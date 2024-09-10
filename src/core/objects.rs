@@ -6,9 +6,9 @@ use std::fmt::Debug;
 use std::hash::Hash;
 use std::rc::Rc;
 
-use super::property::Descriptor;
 use super::id::MagicId;
-use super::{StringRep, SymbolRep, Property};
+use super::property::Descriptor;
+use super::{Property, StringRep, SymbolRep};
 
 /// An [Object](https://tc39.es/ecma262/multipage/ecmascript-data-types-and-values.html#sec-object-type) property key.
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
@@ -55,7 +55,7 @@ pub trait Object: Debug {
 #[derive(Debug)]
 pub struct BaseObject {
     props: RefCell<OrderMap<PropertyKey, Property>>,
-    slots: RefCell<HashMap<StringRep, Rc<dyn 'static + Any>>>,
+    slots: RefCell<HashMap<String, Rc<dyn 'static + Any>>>,
     prototype: RefCell<Option<Rc<ObjectRep>>>,
     extensible: Cell<bool>,
 }
@@ -183,19 +183,18 @@ fn e262_validate_and_apply_property_descriptor(
     }
 }
 
-pub(crate) fn p262_get_slot<T: 'static>(
-    obj: Rc<dyn HasBaseObject>,
-    slot: &StringRep,
-) -> Option<Rc<T>> {
+pub(crate) fn p262_get_slot<T: 'static>(obj: Rc<dyn HasBaseObject>, slot: String) -> Option<Rc<T>> {
     let base = obj.get_object();
     let slots = base.slots.borrow();
-    slots.get(slot).and_then(|x| x.clone().downcast::<T>().ok())
+    slots
+        .get(&slot)
+        .and_then(|x| x.clone().downcast::<T>().ok())
 }
 
-pub(crate) fn p262_has_slot(obj: Rc<dyn HasBaseObject>, slot: &StringRep) -> bool {
+pub(crate) fn p262_has_slot(obj: Rc<dyn HasBaseObject>, slot: String) -> bool {
     let base = obj.get_object();
     let slots = base.slots.borrow();
-    slots.contains_key(slot)
+    slots.contains_key(&slot)
 }
 
 /// The internal implementation of an ES [Object](https://tc39.es/ecma262/multipage/ecmascript-data-types-and-values.html#sec-object-type) value.
