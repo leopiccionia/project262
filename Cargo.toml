@@ -1,0 +1,13 @@
+[package]
+name = "project262"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+num-bigint = "0.4.6"
+ordermap = "0.5.3"
+rand = "0.8.5"
+
+[features]
+default = ["annex-b"]
+annex-b = []
