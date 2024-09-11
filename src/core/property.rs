@@ -30,7 +30,17 @@ pub enum Property {
 }
 
 impl Property {
-    /// Return if current property is enumerable.
+    /// Returns if property is an [accessor property](https://tc39.es/ecma262/multipage/ecmascript-data-types-and-values.html#sec-object-type).
+    pub fn is_accessor(&self) -> bool {
+        matches!(self, Self::Accessor { .. })
+    }
+
+    /// Returns if property is a [data property](https://tc39.es/ecma262/multipage/ecmascript-data-types-and-values.html#sec-object-type).
+    pub fn is_data(&self) -> bool {
+        matches!(self, Self::Data { .. })
+    }
+
+    /// Returns if property is enumerable.
     pub fn is_enumerable(&self) -> bool {
         match self {
             Self::Accessor { enumerable, .. } => *enumerable,
@@ -38,7 +48,7 @@ impl Property {
         }
     }
 
-    /// Return if current property is configurable.
+    /// Returns if property is configurable.
     pub fn is_configurable(&self) -> bool {
         match self {
             Self::Accessor { configurable, .. } => *configurable,

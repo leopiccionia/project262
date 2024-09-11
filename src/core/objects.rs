@@ -8,13 +8,14 @@ use std::rc::Rc;
 
 use super::id::MagicId;
 use super::property::Descriptor;
-use super::{Property, StringRep, SymbolRep};
+use super::test::e262_same_value;
+use super::{Property, SymbolRep, Value};
 
 /// An [Object](https://tc39.es/ecma262/multipage/ecmascript-data-types-and-values.html#sec-object-type) property key.
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub enum PropertyKey {
     /// A [String](https://tc39.es/ecma262/multipage/ecmascript-data-types-and-values.html#sec-ecmascript-language-types-string-type) key.
-    String(StringRep),
+    String(String),
     /// A [Symbol](https://tc39.es/ecma262/multipage/ecmascript-data-types-and-values.html#sec-ecmascript-language-types-symbol-type) key.
     Symbol(SymbolRep),
 }
@@ -137,8 +138,22 @@ pub(crate) fn e262_ordinary_prevent_extensions(obj: Rc<dyn HasBaseObject>) -> bo
     true
 }
 
+pub(crate) fn e262_is_compatible_property_descriptor(
+    extensible: bool,
+    desc: &Descriptor,
+    current: Option<Property>,
+) -> bool {
+    e262_validate_and_apply_property_descriptor(
+        None,
+        &PropertyKey::String("".into()),
+        extensible,
+        desc,
+        current,
+    )
+}
+
 #[allow(clippy::if_same_then_else)]
-fn e262_validate_and_apply_property_descriptor(
+pub(crate) fn e262_validate_and_apply_property_descriptor(
     obj: Option<Rc<dyn HasBaseObject>>,
     key: &PropertyKey,
     extensible: bool,
@@ -151,36 +166,122 @@ fn e262_validate_and_apply_property_descriptor(
                 return false;
             }
             match obj {
-                None => true,
+                None => return true,
                 Some(obj) => {
                     let base = obj.get_object();
                     let prop: Property = desc.clone().into();
                     let mut props = base.props.borrow_mut();
                     props.insert(key.clone(), prop);
-                    true
+                    return true;
                 }
             }
         }
         Some(current) => {
             let desc = desc.clone();
             if desc.is_empty() {
-                true
+                return true;
             } else if !current.is_configurable() {
-                if matches!(desc.configurable, Some(true)) {
-                    false
-                } else if let Some(enumerable) = desc.enumerable {
-                    false
-                } else {
-                    true
-                    // @TODO
+                if desc.configurable == Some(true) {
+                    return false;
+                } else if desc.enumerable == Some(current.is_enumerable()) {
+                    return false;
+                } else if !desc.is_generic() && (desc.is_accessor() != current.is_accessor()) {
+                    return false;
                 }
-            } else {
-                true // @TODO
+                let undefined = Rc::new(Value::Undefined);
+                match &current {
+                    Property::Accessor {
+                        get: current_get,
+                        set: current_set,
+                        ..
+                    } => {
+                        if desc.get.is_some()
+                            && !e262_same_value(
+                                &desc.get.clone().unwrap(),
+                                &current_get.clone().unwrap_or(undefined.clone()),
+                            )
+                        {
+                            return false;
+                        }
+                        if desc.set.is_some()
+                            && !e262_same_value(
+                                &desc.set.clone().unwrap(),
+                                &current_set.clone().unwrap_or(undefined.clone()),
+                            )
+                        {
+                            return false;
+                        }
+                    }
+                    Property::Data {
+                        value: current_value,
+                        writable: current_writable,
+                        ..
+                    } => {
+                        if !current_writable {
+                            if desc.writable == Some(true) {
+                                return false;
+                            }
+                            if desc.value.is_some()
+                                && !e262_same_value(&desc.value.clone().unwrap(), current_value)
+                            {
+                                return false;
+                            }
+                        }
+                    }
+                }
             }
-            // @TODO
-            false
+            if let Some(obj) = obj {
+                let prop = match &current {
+                    Property::Accessor {
+                        enumerable,
+                        configurable,
+                        ..
+                    } => {
+                        if desc.is_accessor() {
+                            Property::Accessor {
+                                get: desc.get,
+                                set: desc.set,
+                                enumerable: desc.enumerable.unwrap_or(false),
+                                configurable: desc.configurable.unwrap_or(false),
+                            }
+                        } else {
+                            Property::Data {
+                                value: desc.value.unwrap_or_else(|| Rc::new(Value::Undefined)),
+                                writable: desc.writable.unwrap_or(false),
+                                enumerable: desc.enumerable.unwrap_or(*enumerable),
+                                configurable: desc.configurable.unwrap_or(*configurable),
+                            }
+                        }
+                    }
+                    Property::Data {
+                        enumerable,
+                        configurable,
+                        ..
+                    } => {
+                        if desc.is_data() {
+                            Property::Data {
+                                value: desc.value.unwrap_or_else(|| Rc::new(Value::Undefined)),
+                                writable: desc.writable.unwrap_or(false),
+                                enumerable: desc.enumerable.unwrap_or(false),
+                                configurable: desc.configurable.unwrap_or(false),
+                            }
+                        } else {
+                            Property::Accessor {
+                                get: desc.get,
+                                set: desc.set,
+                                enumerable: desc.enumerable.unwrap_or(*enumerable),
+                                configurable: desc.configurable.unwrap_or(*configurable),
+                            }
+                        }
+                    }
+                };
+                let base = obj.get_object();
+                let mut props = base.props.borrow_mut();
+                props.insert(key.to_owned(), prop);
+            }
         }
     }
+    true
 }
 
 pub(crate) fn p262_get_slot<T: 'static>(obj: Rc<dyn HasBaseObject>, slot: String) -> Option<Rc<T>> {

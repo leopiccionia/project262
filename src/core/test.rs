@@ -59,7 +59,7 @@ pub(crate) fn e262_same_value_zero(x: &Value, y: &Value) -> bool {
     }
 }
 
-pub fn e262_same_value_non_number(x: &Value, y: &Value) -> bool {
+fn e262_same_value_non_number(x: &Value, y: &Value) -> bool {
     match (x, y) {
         (Value::Null, Value::Null) => true,
         (Value::Undefined, Value::Undefined) => true,
