@@ -1,6 +1,6 @@
 //! A module implementing helpers for handling ES exceptions.
 
-use crate::core::{StringRep, Value};
+use crate::core::StringRep;
 
 /// Implements an error object that can be converted to an ES [NativeError](https://tc39.es/ecma262/multipage/fundamental-objects.html#sec-error-objects) object.
 #[derive(Debug)]
@@ -19,5 +19,5 @@ pub enum CoreError {
     URIError(StringRep),
 }
 
-/// A [Result] wrapping either a [Value] or a [CoreError].
-pub type CoreResult = Result<Value, CoreError>;
+/// A [Result] wrapping either a `T` or a [CoreError].
+pub type CoreResult<T> = Result<T, CoreError>;

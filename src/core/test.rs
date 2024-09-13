@@ -25,7 +25,7 @@ pub(crate) fn e262_is_property_key(argument: &Value) -> bool {
     matches!(argument, Value::String(_) | Value::Symbol(_))
 }
 
-pub(crate) fn e262_require_object_coercible(argument: Value) -> CoreResult {
+pub(crate) fn e262_require_object_coercible(argument: Value) -> CoreResult<Value> {
     match argument {
         Value::Null => Err(CoreError::TypeError(StringRep::Borrowed(
             "Null value cannot be converted to object",

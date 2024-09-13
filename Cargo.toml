@@ -2,6 +2,7 @@
 name = "project262"
 version = "0.1.0"
 edition = "2021"
+toolchain = "nightly"
 
 [dependencies]
 num-bigint = "0.4.6"

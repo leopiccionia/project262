@@ -10,6 +10,7 @@ use super::id::MagicId;
 use super::property::Descriptor;
 use super::test::e262_same_value;
 use super::{Property, SymbolRep, Value};
+use crate::errors::CoreResult;
 
 /// An [Object](https://tc39.es/ecma262/multipage/ecmascript-data-types-and-values.html#sec-object-type) property key.
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
@@ -25,18 +26,18 @@ pub enum PropertyKey {
 /// The default implementation of those methods are defined by the [`BaseObject`] struct, and other structs can leverage them via the [`HasBaseObject`] trait, but one or more internal methods can be overriden by [exotic objects](https://tc39.es/ecma262/multipage/ecmascript-data-types-and-values.html#exotic-object).
 pub trait Object: Debug {
     /// Implements the [`[[GetPrototypeOf]]`](https://tc39.es/ecma262/multipage/ordinary-and-exotic-objects-behaviours.html#sec-ordinary-object-internal-methods-and-internal-slots-getprototypeof) internal method.
-    fn get_prototype_of(self: Rc<Self>) -> Option<Rc<ObjectRep>>;
+    fn get_prototype_of(self: Rc<Self>) -> CoreResult<Option<Rc<ObjectRep>>>;
 
     // fn set_prototype_of(self: Rc<Self>, proto: Rc<ObjectRep>) -> bool;
 
     /// Implements the [`[[IsExtensible]]`](https://tc39.es/ecma262/multipage/ordinary-and-exotic-objects-behaviours.html#sec-ordinary-object-internal-methods-and-internal-slots-isextensible) internal method.
-    fn is_extensible(self: Rc<Self>) -> bool;
+    fn is_extensible(self: Rc<Self>) -> CoreResult<bool>;
 
     /// Implements the [`[[PreventExtensions]]`](https://tc39.es/ecma262/multipage/ordinary-and-exotic-objects-behaviours.html#sec-ordinary-object-internal-methods-and-internal-slots-preventextensions) internal method.
-    fn prevent_extensions(self: Rc<Self>) -> bool;
+    fn prevent_extensions(self: Rc<Self>) -> CoreResult<bool>;
 
     ///Implements the [`[[GetOwnProperty]]`](https://tc39.es/ecma262/multipage/ordinary-and-exotic-objects-behaviours.html#sec-ordinary-object-internal-methods-and-internal-slots-getownproperty-p) internal method.
-    fn get_own_property(self: Rc<Self>, key: &PropertyKey) -> Option<Property>;
+    fn get_own_property(self: Rc<Self>, key: &PropertyKey) -> CoreResult<Option<Property>>;
 
     // fn define_own_property(self: Rc<Self>, key: PropertyKey, prop: Property) -> bool;
 
@@ -47,7 +48,7 @@ pub trait Object: Debug {
     // fn set(self: Rc<Self>, key: &PropertyKey, value: Value, receiver: Value) -> bool;
 
     /// Implements the [`[[Delete]]`](https://tc39.es/ecma262/multipage/ordinary-and-exotic-objects-behaviours.html#sec-ordinary-object-internal-methods-and-internal-slots-delete-p) internal method.
-    fn delete(self: Rc<Self>, key: &PropertyKey) -> bool;
+    fn delete(self: Rc<Self>, key: &PropertyKey) -> CoreResult<bool>;
 
     // fn own_property_keys(self: Rc<Self>) -> Vec<&PropertyKey>;
 }
@@ -62,23 +63,23 @@ pub struct BaseObject {
 }
 
 impl Object for BaseObject {
-    fn get_prototype_of(self: Rc<Self>) -> Option<Rc<ObjectRep>> {
-        e262_ordinary_get_prototype_of(self)
+    fn get_prototype_of(self: Rc<Self>) -> CoreResult<Option<Rc<ObjectRep>>> {
+        Ok(e262_ordinary_get_prototype_of(self))
     }
 
-    fn is_extensible(self: Rc<Self>) -> bool {
-        e262_ordinary_is_extensible(self)
+    fn is_extensible(self: Rc<Self>) -> CoreResult<bool> {
+        Ok(e262_ordinary_is_extensible(self))
     }
 
-    fn prevent_extensions(self: Rc<Self>) -> bool {
-        e262_ordinary_prevent_extensions(self)
+    fn prevent_extensions(self: Rc<Self>) -> CoreResult<bool> {
+        Ok(e262_ordinary_prevent_extensions(self))
     }
 
-    fn get_own_property(self: Rc<Self>, key: &PropertyKey) -> Option<Property> {
-        e262_ordinary_get_own_property(self, key)
+    fn get_own_property(self: Rc<Self>, key: &PropertyKey) -> CoreResult<Option<Property>> {
+        Ok(e262_ordinary_get_own_property(self, key))
     }
 
-    fn delete(self: Rc<Self>, key: &PropertyKey) -> bool {
+    fn delete(self: Rc<Self>, key: &PropertyKey) -> CoreResult<bool> {
         e262_ordinary_delete(self, key)
     }
 }
@@ -86,6 +87,7 @@ impl Object for BaseObject {
 /// Gets a [`BaseObject`] from an [ordinary](https://tc39.es/ecma262/multipage/ecmascript-data-types-and-values.html#ordinary-object) or [exotic](https://tc39.es/ecma262/multipage/ecmascript-data-types-and-values.html#exotic-object) Object implementation.
 ///
 /// It's useful for easily implementing all the methods in [`Object`] trait.
+#[allow(clippy::too_long_first_doc_paragraph)]
 pub trait HasBaseObject: Object {
     /// Gets a reference to a [`BaseObject`].
     fn get_object(self: Rc<Self>) -> Rc<BaseObject>;
@@ -97,16 +99,41 @@ impl HasBaseObject for BaseObject {
     }
 }
 
-pub(crate) fn e262_ordinary_delete(obj: Rc<dyn HasBaseObject>, key: &PropertyKey) -> bool {
-    match Object::get_own_property(obj.clone(), key) {
-        None => true,
-        Some(desc) => {
-            if desc.is_configurable() {
+pub(crate) fn e262_is_extensible(obj: Rc<dyn Object>) -> CoreResult<bool> {
+    Object::is_extensible(obj.clone())
+}
+
+pub(crate) fn e262_ordinary_define_own_property(
+    obj: Rc<dyn HasBaseObject>,
+    key: &PropertyKey,
+    desc: Descriptor,
+) -> CoreResult<bool> {
+    let current = Object::get_own_property(obj.clone(), key)?;
+    let extensible = e262_is_extensible(obj.clone())?;
+    Ok(e262_validate_and_apply_property_descriptor(
+        Some(obj),
+        key,
+        extensible,
+        &desc,
+        current,
+    ))
+}
+
+pub(crate) fn e262_ordinary_delete(
+    obj: Rc<dyn HasBaseObject>,
+    key: &PropertyKey,
+) -> CoreResult<bool> {
+    let prop = Object::get_own_property(obj.clone(), key);
+    match prop {
+        Err(err) => Err(err),
+        Ok(None) => Ok(true),
+        Ok(Some(prop)) => {
+            if prop.is_configurable() {
                 let base = obj.get_object();
                 base.props.borrow_mut().remove(key);
-                true
+                Ok(true)
             } else {
-                false
+                Ok(false)
             }
         }
     }
