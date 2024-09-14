@@ -20,4 +20,6 @@ pub enum CoreError {
 }
 
 /// A [Result] wrapping either a `T` or a [CoreError].
+///
+/// It can be converted into a [`Completion`](crate::completions::Completion) via the [`From`] trait.
 pub type CoreResult<T> = Result<T, CoreError>;
