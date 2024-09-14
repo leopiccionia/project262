@@ -2,7 +2,7 @@ use std::rc::Rc;
 
 use super::Value;
 
-/// An [Object](https://tc39.es/ecma262/multipage/ecmascript-data-types-and-values.html#sec-object-type) property [descriptor](https://tc39.es/ecma262/multipage/ecmascript-data-types-and-values.html#sec-property-attributes).
+/// An [Object](https://tc39.es/ecma262/multipage/ecmascript-data-types-and-values.html#sec-object-type) [property](https://tc39.es/ecma262/multipage/ecmascript-data-types-and-values.html#sec-property-attributes).
 #[derive(Debug, PartialEq)]
 pub enum Property {
     /// A [data property](https://tc39.es/ecma262/multipage/ecmascript-data-types-and-values.html#sec-object-type).
@@ -87,13 +87,23 @@ impl Clone for Property {
 }
 
 /// A [property descriptor](https://tc39.es/ecma262/multipage/ecmascript-data-types-and-values.html#sec-property-descriptor-specification-type).
+///
+/// A `Descriptor` is used to define a [`Property`] in an [`Object`](super::Object).
+///
+/// A `Descriptor` can be easily converted into a `Property`, and vice-versa, via the [`From`] trait.
 #[derive(Clone, Debug, Default)]
-pub(crate) struct Descriptor {
+pub struct Descriptor {
+    /// The value retrieved by an access of the property.
     pub value: Option<Rc<Value>>,
+    /// If true, the property's value can be re-assigned.
     pub writable: Option<bool>,
+    /// The getter for the value of the property.
     pub get: Option<Rc<Value>>,
+    /// The getter for the value of the property.
     pub set: Option<Rc<Value>>,
+    /// If true, the property will be enumerated by a `for` … `in` enumeration.
     pub enumerable: Option<bool>,
+    /// If false, neither the property can be deleted, nor any property attribute can be changed.
     pub configurable: Option<bool>,
 }
 

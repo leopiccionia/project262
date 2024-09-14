@@ -25,21 +25,22 @@ pub enum PropertyKey {
 ///
 /// The default implementation of those methods are defined by the [`BaseObject`] struct, and other structs can leverage them via the [`HasBaseObject`] trait, but one or more internal methods can be overriden by [exotic objects](https://tc39.es/ecma262/multipage/ecmascript-data-types-and-values.html#exotic-object).
 pub trait Object: Debug {
-    /// Implements the [`[[GetPrototypeOf]]`](https://tc39.es/ecma262/multipage/ordinary-and-exotic-objects-behaviours.html#sec-ordinary-object-internal-methods-and-internal-slots-getprototypeof) internal method.
+    /// Implements the [`[[GetPrototypeOf]]`](https://tc39.es/ecma262/multipage/ecmascript-data-types-and-values.html#sec-invariants-of-the-essential-internal-methods) internal method.
     fn get_prototype_of(self: Rc<Self>) -> CoreResult<Option<Rc<ObjectRep>>>;
 
     // fn set_prototype_of(self: Rc<Self>, proto: Rc<ObjectRep>) -> bool;
 
-    /// Implements the [`[[IsExtensible]]`](https://tc39.es/ecma262/multipage/ordinary-and-exotic-objects-behaviours.html#sec-ordinary-object-internal-methods-and-internal-slots-isextensible) internal method.
+    /// Implements the [`[[IsExtensible]]`](https://tc39.es/ecma262/multipage/ecmascript-data-types-and-values.html#sec-invariants-of-the-essential-internal-methods) internal method.
     fn is_extensible(self: Rc<Self>) -> CoreResult<bool>;
 
-    /// Implements the [`[[PreventExtensions]]`](https://tc39.es/ecma262/multipage/ordinary-and-exotic-objects-behaviours.html#sec-ordinary-object-internal-methods-and-internal-slots-preventextensions) internal method.
+    /// Implements the [`[[PreventExtensions]]`](https://tc39.es/ecma262/multipage/ecmascript-data-types-and-values.html#sec-invariants-of-the-essential-internal-methods) internal method.
     fn prevent_extensions(self: Rc<Self>) -> CoreResult<bool>;
 
-    ///Implements the [`[[GetOwnProperty]]`](https://tc39.es/ecma262/multipage/ordinary-and-exotic-objects-behaviours.html#sec-ordinary-object-internal-methods-and-internal-slots-getownproperty-p) internal method.
+    ///Implements the [`[[GetOwnProperty]]`](https://tc39.es/ecma262/multipage/ecmascript-data-types-and-values.html#sec-invariants-of-the-essential-internal-methods) internal method.
     fn get_own_property(self: Rc<Self>, key: &PropertyKey) -> CoreResult<Option<Property>>;
 
-    // fn define_own_property(self: Rc<Self>, key: PropertyKey, prop: Property) -> bool;
+    ///Implements the [`[[DefineOwnProperty]]`](https://tc39.es/ecma262/multipage/ecmascript-data-types-and-values.html#sec-invariants-of-the-essential-internal-methods) internal method.
+    fn define_own_property(self: Rc<Self>, key: PropertyKey, desc: Descriptor) -> CoreResult<bool>;
 
     // fn has_property(self: Rc<Self>, key: &PropertyKey) -> bool;
 
@@ -47,7 +48,7 @@ pub trait Object: Debug {
 
     // fn set(self: Rc<Self>, key: &PropertyKey, value: Value, receiver: Value) -> bool;
 
-    /// Implements the [`[[Delete]]`](https://tc39.es/ecma262/multipage/ordinary-and-exotic-objects-behaviours.html#sec-ordinary-object-internal-methods-and-internal-slots-delete-p) internal method.
+    /// Implements the [`[[Delete]]`](https://tc39.es/ecma262/multipage/ecmascript-data-types-and-values.html#sec-invariants-of-the-essential-internal-methods) internal method.
     fn delete(self: Rc<Self>, key: &PropertyKey) -> CoreResult<bool>;
 
     // fn own_property_keys(self: Rc<Self>) -> Vec<&PropertyKey>;
@@ -77,6 +78,10 @@ impl Object for BaseObject {
 
     fn get_own_property(self: Rc<Self>, key: &PropertyKey) -> CoreResult<Option<Property>> {
         Ok(e262_ordinary_get_own_property(self, key))
+    }
+
+    fn define_own_property(self: Rc<Self>, key: PropertyKey, desc: Descriptor) -> CoreResult<bool> {
+        e262_ordinary_define_own_property(self, &key, desc)
     }
 
     fn delete(self: Rc<Self>, key: &PropertyKey) -> CoreResult<bool> {
