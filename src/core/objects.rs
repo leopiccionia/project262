@@ -25,6 +25,15 @@ pub enum PropertyKey {
 ///
 /// The default implementation of those methods are defined by the [`BaseObject`] struct, and other structs can leverage them via the [`HasBaseObject`] trait, but one or more internal methods can be overriden by [exotic objects](https://tc39.es/ecma262/multipage/ecmascript-data-types-and-values.html#exotic-object).
 pub trait Object: Debug {
+    /// Get an object slot.
+    ///
+    /// Due to [object safety constraints](https://doc.rust-lang.org/reference/items/traits.html#object-safety), it returns the slot as [`Any`].
+    /// For getting typed slots, use the [`p262_get_slot`] function.
+    #[allow(unused_variables)]
+    fn get_slot(self: Rc<Self>, key: String) -> Option<Rc<dyn Any>> {
+        None
+    }
+
     /// Implements the [`[[GetPrototypeOf]]`](https://tc39.es/ecma262/multipage/ecmascript-data-types-and-values.html#sec-invariants-of-the-essential-internal-methods) internal method.
     fn get_prototype_of(self: Rc<Self>) -> CoreResult<Option<Rc<ObjectRep>>>;
 
@@ -64,6 +73,11 @@ pub struct BaseObject {
 }
 
 impl Object for BaseObject {
+    fn get_slot(self: Rc<Self>, key: String) -> Option<Rc<dyn Any>> {
+        let slots = self.slots.borrow();
+        slots.get(&key).cloned()
+    }
+
     fn get_prototype_of(self: Rc<Self>) -> CoreResult<Option<Rc<ObjectRep>>> {
         Ok(e262_ordinary_get_prototype_of(self))
     }
@@ -316,18 +330,16 @@ pub(crate) fn e262_validate_and_apply_property_descriptor(
     true
 }
 
-pub(crate) fn p262_get_slot<T: 'static>(obj: Rc<dyn HasBaseObject>, slot: String) -> Option<Rc<T>> {
-    let base = obj.get_object();
-    let slots = base.slots.borrow();
-    slots
-        .get(&slot)
-        .and_then(|x| x.clone().downcast::<T>().ok())
+/// Retrieves a slot from the [`Object`], if it exists and matches the provided type.
+pub fn p262_get_slot<T: 'static>(obj: Rc<dyn Object>, key: String) -> Option<Rc<T>> {
+    let slot = obj.get_slot(key);
+    slot.and_then(|x| x.downcast::<T>().ok())
 }
 
-pub(crate) fn p262_has_slot(obj: Rc<dyn HasBaseObject>, slot: String) -> bool {
-    let base = obj.get_object();
-    let slots = base.slots.borrow();
-    slots.contains_key(&slot)
+/// Returns if the [`Object`] has a matching slot.
+pub fn p262_has_slot(obj: Rc<dyn Object>, key: String) -> bool {
+    let slot = obj.get_slot(key);
+    slot.is_some()
 }
 
 /// The internal implementation of an ES [Object](https://tc39.es/ecma262/multipage/ecmascript-data-types-and-values.html#sec-object-type) value.
