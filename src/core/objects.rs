@@ -34,6 +34,12 @@ pub trait Object: Debug {
         None
     }
 
+    /// Set an object slot.
+    #[allow(unused_variables)]
+    fn set_slot(self: Rc<Self>, key: String, value: Rc<dyn Any>) -> bool {
+        false
+    }
+
     /// Implements the [`[[GetPrototypeOf]]`](https://tc39.es/ecma262/multipage/ecmascript-data-types-and-values.html#sec-invariants-of-the-essential-internal-methods) internal method.
     fn get_prototype_of(self: Rc<Self>) -> CoreResult<Option<Rc<ObjectRep>>>;
 
@@ -76,6 +82,12 @@ impl Object for BaseObject {
     fn get_slot(self: Rc<Self>, key: String) -> Option<Rc<dyn Any>> {
         let slots = self.slots.borrow();
         slots.get(&key).cloned()
+    }
+
+    fn set_slot(self: Rc<Self>, key: String, value: Rc<dyn Any>) -> bool {
+        let mut slots = self.slots.borrow_mut();
+        slots.insert(key, value);
+        true
     }
 
     fn get_prototype_of(self: Rc<Self>) -> CoreResult<Option<Rc<ObjectRep>>> {
