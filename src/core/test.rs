@@ -1,10 +1,10 @@
+use super::Value;
 use super::{bigint, numbers};
-use super::{StringRep, Value};
 use crate::errors::{CoreError, CoreResult};
 
-pub(crate) fn e262_is_integral_number(argument: Value) -> bool {
+pub(crate) fn e262_is_integral_number(argument: &Value) -> bool {
     if let Value::Number(value) = argument {
-        value.is_finite() && value.floor() == value
+        value.is_finite() && value.floor() == (*value)
     } else {
         false
     }
@@ -27,12 +27,12 @@ pub(crate) fn e262_is_property_key(argument: &Value) -> bool {
 
 pub(crate) fn e262_require_object_coercible(argument: Value) -> CoreResult<Value> {
     match argument {
-        Value::Null => Err(CoreError::TypeError(StringRep::Borrowed(
-            "Null value cannot be converted to object",
-        ))),
-        Value::Undefined => Err(CoreError::TypeError(StringRep::Borrowed(
-            "Undefined value cannot be converted to object",
-        ))),
+        Value::Null => Err(CoreError::TypeError(
+            "Cannot convert null value into Object".to_string(),
+        )),
+        Value::Undefined => Err(CoreError::TypeError(
+            "Cannot convert undefined value into Object".to_string(),
+        )),
         _ => Ok(argument),
     }
 }

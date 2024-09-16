@@ -1,3 +1,5 @@
+pub(crate) const MAX_SAFE_INTEGER: f64 = 9_007_199_254_740_991f64;
+
 pub(crate) fn e262_equal(x: f64, y: f64) -> bool {
     if is_nan(x) || is_nan(y) {
         false
@@ -30,13 +32,28 @@ pub(crate) fn e262_same_value_zero(x: f64, y: f64) -> bool {
 }
 
 #[inline(always)]
+pub(crate) fn is_inf(value: f64) -> bool {
+    value.is_infinite()
+}
+
+#[inline(always)]
 pub(crate) fn is_nan(value: f64) -> bool {
     value.is_nan()
 }
 
 #[inline(always)]
+pub(crate) fn is_neg_inf(value: f64) -> bool {
+    value == f64::NEG_INFINITY
+}
+
+#[inline(always)]
 pub(crate) fn is_neg_zero(value: f64) -> bool {
     value == 0.0 && value.is_sign_negative()
+}
+
+#[inline(always)]
+pub(crate) fn is_pos_inf(value: f64) -> bool {
+    value == f64::INFINITY
 }
 
 #[inline(always)]
