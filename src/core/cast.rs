@@ -1,3 +1,4 @@
+use super::p262_has_slot;
 use super::Value;
 use super::{bigint, numbers};
 use crate::errors::{CoreError, CoreResult};
@@ -16,9 +17,9 @@ pub(crate) fn e262_to_boolean(argument: &Value) -> bool {
         Value::BigInt(value) => !bigint::is_zero(value.clone()),
         Value::String(value) => value.len() > 0,
         Value::Symbol(_) => true,
-        Value::Object(_) => {
+        Value::Object(obj) => {
             if cfg!(feature = "annex-b") {
-                false // @TODO
+                !p262_has_slot(obj.1.clone(), "IsHTMLDDA".to_string())
             } else {
                 true
             }
