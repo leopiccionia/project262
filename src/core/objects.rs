@@ -57,7 +57,8 @@ pub trait Object: Debug {
     ///Implements the [`[[DefineOwnProperty]]`](https://tc39.es/ecma262/multipage/ecmascript-data-types-and-values.html#sec-invariants-of-the-essential-internal-methods) internal method.
     fn define_own_property(self: Rc<Self>, key: PropertyKey, desc: Descriptor) -> CoreResult<bool>;
 
-    // fn has_property(self: Rc<Self>, key: &PropertyKey) -> bool;
+    ///Implements the [`[[HasProperty]]`](https://tc39.es/ecma262/multipage/ecmascript-data-types-and-values.html#sec-invariants-of-the-essential-internal-methods) internal method.
+    fn has_property(self: Rc<Self>, key: &PropertyKey) -> CoreResult<bool>;
 
     // fn get(self: Rc<Self>, key: &PropertyKey, receiver: Value) -> Value;
 
@@ -108,6 +109,10 @@ impl Object for BaseObject {
 
     fn define_own_property(self: Rc<Self>, key: PropertyKey, desc: Descriptor) -> CoreResult<bool> {
         e262_ordinary_define_own_property(self, &key, desc)
+    }
+
+    fn has_property(self: Rc<Self>, key: &PropertyKey) -> CoreResult<bool> {
+        e262_ordinary_has_property(self, key)
     }
 
     fn delete(self: Rc<Self>, key: &PropertyKey) -> CoreResult<bool> {
@@ -183,6 +188,21 @@ pub(crate) fn e262_ordinary_get_prototype_of(obj: Rc<dyn HasBaseObject>) -> Opti
     let base = obj.get_object();
     let proto = base.prototype.borrow();
     proto.clone()
+}
+
+pub(crate) fn e262_ordinary_has_property(obj: Rc<dyn HasBaseObject>, key: &PropertyKey) -> CoreResult<bool>{
+    let base = obj.get_object();
+    let has_own = base.clone().get_own_property(key)?;
+    match has_own {
+        Some(_) => Ok(true),
+        None => {
+            let parent = base.get_prototype_of()?;
+            match parent {
+                Some(parent) => parent.1.clone().has_property(key),
+                None => Ok(false),
+            }
+        },
+    }
 }
 
 pub(crate) fn e262_ordinary_is_extensible(obj: Rc<dyn HasBaseObject>) -> bool {
