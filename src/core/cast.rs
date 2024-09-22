@@ -17,9 +17,9 @@ pub(crate) fn e262_to_boolean(argument: &Value) -> bool {
         Value::BigInt(value) => !bigint::is_zero(value.clone()),
         Value::String(value) => value.len() > 0,
         Value::Symbol(_) => true,
-        Value::Object(obj) => {
+        Value::Object(value) => {
             if cfg!(feature = "annex-b") {
-                !p262_has_slot(obj.1.clone(), "IsHTMLDDA".to_string())
+                !p262_has_slot(value.1.clone(), "IsHTMLDDA".to_string())
             } else {
                 true
             }
