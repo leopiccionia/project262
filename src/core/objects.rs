@@ -1,7 +1,7 @@
 use ordermap::OrderMap;
 use std::any::Any;
 use std::cell::{Cell, RefCell};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fmt::Debug;
 use std::hash::Hash;
 use std::rc::Rc;
@@ -29,21 +29,16 @@ pub trait Object: Debug {
     ///
     /// Due to [object safety constraints](https://doc.rust-lang.org/reference/items/traits.html#object-safety), it returns the slot as [`Any`].
     /// For getting typed slots, use the [`p262_get_slot`] function.
-    #[allow(unused_variables)]
-    fn get_slot(self: Rc<Self>, key: String) -> Option<Rc<dyn Any>> {
-        None
-    }
+    fn get_slot(self: Rc<Self>, key: String) -> Option<Rc<dyn Any>>;
 
     /// Set an object slot.
-    #[allow(unused_variables)]
-    fn set_slot(self: Rc<Self>, key: String, value: Rc<dyn Any>) -> bool {
-        false
-    }
+    fn set_slot(self: Rc<Self>, key: String, value: Rc<dyn Any>) -> bool;
 
     /// Implements the [`[[GetPrototypeOf]]`](https://tc39.es/ecma262/multipage/ecmascript-data-types-and-values.html#sec-invariants-of-the-essential-internal-methods) internal method.
-    fn get_prototype_of(self: Rc<Self>) -> CoreResult<Option<Rc<ObjectRep>>>;
+    fn get_prototype_of(self: Rc<Self>) -> CoreResult<Option<ObjectRep>>;
 
-    // fn set_prototype_of(self: Rc<Self>, proto: Rc<ObjectRep>) -> bool;
+    ///Implements the [`[[SetPrototypeOf]]`](https://tc39.es/ecma262/multipage/ecmascript-data-types-and-values.html#sec-invariants-of-the-essential-internal-methods) internal method.
+    fn set_prototype_of(self: Rc<Self>, proto: Option<ObjectRep>) -> bool;
 
     /// Implements the [`[[IsExtensible]]`](https://tc39.es/ecma262/multipage/ecmascript-data-types-and-values.html#sec-invariants-of-the-essential-internal-methods) internal method.
     fn is_extensible(self: Rc<Self>) -> CoreResult<bool>;
@@ -73,10 +68,23 @@ pub trait Object: Debug {
 /// The internal implementation for an ES [ordinary object](https://tc39.es/ecma262/multipage/ecmascript-data-types-and-values.html#ordinary-object).
 #[derive(Debug)]
 pub struct BaseObject {
+    id: MagicId,
     props: RefCell<OrderMap<PropertyKey, Property>>,
     slots: RefCell<HashMap<String, Rc<dyn 'static + Any>>>,
-    prototype: RefCell<Option<Rc<ObjectRep>>>,
+    prototype: RefCell<Option<ObjectRep>>,
     extensible: Cell<bool>,
+}
+
+impl BaseObject {
+    fn new(prototype: &Option<ObjectRep>) -> Self {
+        BaseObject {
+            id: MagicId::new(),
+            props: RefCell::new(OrderMap::new()),
+            slots: RefCell::new(HashMap::new()),
+            prototype: RefCell::new(prototype.clone()),
+            extensible: Cell::new(true),
+        }
+    }
 }
 
 impl Object for BaseObject {
@@ -91,8 +99,12 @@ impl Object for BaseObject {
         true
     }
 
-    fn get_prototype_of(self: Rc<Self>) -> CoreResult<Option<Rc<ObjectRep>>> {
+    fn get_prototype_of(self: Rc<Self>) -> CoreResult<Option<ObjectRep>> {
         Ok(e262_ordinary_get_prototype_of(self))
+    }
+
+    fn set_prototype_of(self: Rc<Self>, proto: Option<ObjectRep>) -> bool {
+        e262_ordinary_set_prototype_of(self, proto)
     }
 
     fn is_extensible(self: Rc<Self>) -> CoreResult<bool> {
@@ -184,13 +196,16 @@ pub(crate) fn e262_ordinary_get_own_property(
     props.get(key).cloned()
 }
 
-pub(crate) fn e262_ordinary_get_prototype_of(obj: Rc<dyn HasBaseObject>) -> Option<Rc<ObjectRep>> {
+pub(crate) fn e262_ordinary_get_prototype_of(obj: Rc<dyn HasBaseObject>) -> Option<ObjectRep> {
     let base = obj.get_object();
     let proto = base.prototype.borrow();
     proto.clone()
 }
 
-pub(crate) fn e262_ordinary_has_property(obj: Rc<dyn HasBaseObject>, key: &PropertyKey) -> CoreResult<bool>{
+pub(crate) fn e262_ordinary_has_property(
+    obj: Rc<dyn HasBaseObject>,
+    key: &PropertyKey,
+) -> CoreResult<bool> {
     let base = obj.get_object();
     let has_own = base.clone().get_own_property(key)?;
     match has_own {
@@ -198,10 +213,10 @@ pub(crate) fn e262_ordinary_has_property(obj: Rc<dyn HasBaseObject>, key: &Prope
         None => {
             let parent = base.get_prototype_of()?;
             match parent {
-                Some(parent) => parent.1.clone().has_property(key),
+                Some(parent) => parent.0.clone().has_property(key),
                 None => Ok(false),
             }
-        },
+        }
     }
 }
 
@@ -228,6 +243,48 @@ pub(crate) fn e262_is_compatible_property_descriptor(
         desc,
         current,
     )
+}
+
+pub(crate) fn e262_ordinary_set_prototype_of(
+    obj: Rc<dyn HasBaseObject>,
+    proto: Option<ObjectRep>,
+) -> bool {
+    let base = obj.get_object();
+    let base_id = base.id;
+    let current = base.prototype.borrow_mut();
+    if *current == proto {
+        true
+    } else {
+        let mut found_protos: HashSet<MagicId> = HashSet::new();
+
+        if !base.extensible.get() {
+            return false;
+        }
+
+        let mut p: Option<ObjectRep> = proto;
+        let mut done = false;
+        while !done {
+            match &p {
+                None => {
+                    done = true;
+                }
+                Some(rep) => {
+                    let curr_id = rep.clone().0.get_object().id;
+
+                    if curr_id == base_id {
+                        return false;
+                    } else if found_protos.contains(&curr_id) {
+                        done = true; // @TODO
+                    } else {
+                        found_protos.insert(curr_id);
+                        p = rep.clone().0.get_object().prototype.borrow().clone();
+                    }
+                }
+            }
+        }
+        base.prototype.replace(p);
+        true
+    }
 }
 
 #[allow(clippy::if_same_then_else)]
@@ -363,6 +420,8 @@ pub(crate) fn e262_validate_and_apply_property_descriptor(
 }
 
 /// Retrieves a slot from the [`Object`], if it exists and matches the provided type.
+///
+/// Prefer it over the lower-level [`Object::get_slot`] because of the typed return value.
 pub fn p262_get_slot<T: 'static>(obj: Rc<dyn Object>, key: String) -> Option<Rc<T>> {
     let slot = obj.get_slot(key);
     slot.and_then(|x| x.downcast::<T>().ok())
@@ -375,11 +434,18 @@ pub fn p262_has_slot(obj: Rc<dyn Object>, key: String) -> bool {
 }
 
 /// The internal implementation of an ES [Object](https://tc39.es/ecma262/multipage/ecmascript-data-types-and-values.html#sec-object-type) value.
-#[derive(Debug)]
-pub struct ObjectRep(MagicId, pub Rc<dyn 'static + Object>);
+#[derive(Clone, Debug)]
+pub struct ObjectRep(pub Rc<dyn 'static + HasBaseObject>);
+
+impl ObjectRep {
+    /// Create a new [`ObjectRep`] from an [`HasBaseObject`]
+    pub fn new(rc: Rc<dyn 'static + HasBaseObject>) -> Self {
+        ObjectRep(rc.clone())
+    }
+}
 
 impl PartialEq for ObjectRep {
     fn eq(&self, other: &Self) -> bool {
-        self.0 == other.0
+        Rc::ptr_eq(&self.0, &other.0)
     }
 }

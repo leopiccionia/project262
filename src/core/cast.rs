@@ -19,7 +19,7 @@ pub(crate) fn e262_to_boolean(argument: &Value) -> bool {
         Value::Symbol(_) => true,
         Value::Object(value) => {
             if cfg!(feature = "annex-b") {
-                !p262_has_slot(value.1.clone(), "IsHTMLDDA".to_string())
+                !p262_has_slot(value.0.clone(), "IsHTMLDDA".to_string())
             } else {
                 true
             }
@@ -61,7 +61,7 @@ pub(crate) fn e262_to_number(argument: &Value) -> CoreResult<f64> {
         Value::Undefined => Ok(f64::NAN),
         Value::Null | Value::Boolean(false) => Ok(0f64),
         Value::Boolean(true) => Ok(1f64),
-        Value::String(value) => Ok(value.parse::<f64>().unwrap_or(f64::NAN)), // TODO
-        Value::Object(_) => Ok(1f64),                                         // TODO
+        Value::String(value) => Ok(value.parse::<f64>().unwrap_or(f64::NAN)), // @TODO
+        Value::Object(_) => Ok(1f64),                                         // @TODO
     }
 }
