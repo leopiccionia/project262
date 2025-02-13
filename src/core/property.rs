@@ -200,7 +200,7 @@ pub(crate) fn e262_complete_property_descriptor(desc: Descriptor) -> Property {
         }
     } else {
         Property::Data {
-            value: desc.value.unwrap_or_else(|| Rc::new(Value::Undefined)),
+            value: desc.value.unwrap_or_default(),
             writable: desc.writable.unwrap_or(false),
             enumerable: desc.enumerable.unwrap_or(false),
             configurable: desc.enumerable.unwrap_or(false),

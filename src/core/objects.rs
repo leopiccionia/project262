@@ -323,7 +323,7 @@ pub(crate) fn e262_validate_and_apply_property_descriptor(
                 } else if !desc.is_generic() && (desc.is_accessor() != current.is_accessor()) {
                     return false;
                 }
-                let undefined = Rc::new(Value::Undefined);
+                let undefined = Rc::new(Value::default());
                 match &current {
                     Property::Accessor {
                         get: current_get,
@@ -381,7 +381,7 @@ pub(crate) fn e262_validate_and_apply_property_descriptor(
                             }
                         } else {
                             Property::Data {
-                                value: desc.value.unwrap_or_else(|| Rc::new(Value::Undefined)),
+                                value: desc.value.unwrap_or_default(),
                                 writable: desc.writable.unwrap_or(false),
                                 enumerable: desc.enumerable.unwrap_or(*enumerable),
                                 configurable: desc.configurable.unwrap_or(*configurable),
@@ -395,7 +395,7 @@ pub(crate) fn e262_validate_and_apply_property_descriptor(
                     } => {
                         if desc.is_data() {
                             Property::Data {
-                                value: desc.value.unwrap_or_else(|| Rc::new(Value::Undefined)),
+                                value: desc.value.unwrap_or_default(),
                                 writable: desc.writable.unwrap_or(false),
                                 enumerable: desc.enumerable.unwrap_or(false),
                                 configurable: desc.configurable.unwrap_or(false),

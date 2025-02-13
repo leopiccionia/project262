@@ -62,7 +62,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn have_identity() {
+    fn has_identity() {
         let a = SymbolRep::named("foo".to_string());
         let b = SymbolRep::named("foo".to_string());
 

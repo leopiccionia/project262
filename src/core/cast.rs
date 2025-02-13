@@ -1,5 +1,5 @@
-use super::p262_has_slot;
 use super::Value;
+use super::p262_has_slot;
 use super::{bigint, numbers};
 use crate::errors::{CoreError, CoreResult};
 

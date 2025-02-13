@@ -5,11 +5,12 @@ use super::string::StringRep;
 use super::symbol::SymbolRep;
 
 /// An ES value of any type.
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Default, PartialEq)]
 pub enum Value {
     /// Holds a [null](https://tc39.es/ecma262/multipage/ecmascript-data-types-and-values.html#sec-ecmascript-language-types-null-type) value.
     Null,
     /// Holds an [undefined](https://tc39.es/ecma262/multipage/ecmascript-data-types-and-values.html#sec-ecmascript-language-types-undefined-type) value.
+    #[default]
     Undefined,
     /// Holds a [Boolean](https://tc39.es/ecma262/multipage/ecmascript-data-types-and-values.html#sec-ecmascript-language-types-boolean-type) value.
     Boolean(bool),
@@ -68,6 +69,11 @@ pub fn p262_undefined() -> Value {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn has_default() {
+        assert_eq!(Value::default(), Value::Undefined)
+    }
 
     #[test]
     fn bigint_works() {
