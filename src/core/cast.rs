@@ -15,7 +15,7 @@ pub(crate) fn e262_to_boolean(argument: &Value) -> bool {
         Value::Null | Value::Undefined => false,
         Value::Number(value) => !numbers::is_zero(*value) && !numbers::is_nan(*value),
         Value::BigInt(value) => !bigint::is_zero(value.clone()),
-        Value::String(value) => value.len() > 0,
+        Value::String(value) => !value.is_empty(),
         Value::Symbol(_) => true,
         Value::Object(value) => {
             if cfg!(feature = "annex-b") {
